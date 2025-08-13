@@ -9,16 +9,15 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
+    "pages": ["index"],
     "tabs": [
       {
         "tab": "Notes",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Setups",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "setups/flask_backend"
             ]
           }
         ]

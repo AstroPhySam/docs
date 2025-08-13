@@ -1,0 +1,424 @@
+---
+title: "Flask Backend ( General )"
+description: "Flask setup with clean Blueprint Based structure, Flask-SQLAlchemy & Flask-Migrate."
+---
+
+## 1. First to setup Virtual Environment
+
+- Make your backend folder named `Backend`
+- Initialize `venv` from your VS Code Left Sidebar or run,
+
+```powershell
+#Intializing venv
+python -m venv .venv
+
+#allow powershell to run virtual environment (For WIndows Users)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+#running venv 
+.venv/Scripts/Activate.ps1
+```
+
+Now your terminal will start looking like,
+
+```powershell
+(.venv) PS C:\your\project\path>
+```
+
+Now a `.venv` folder would've appeared in your project folder.
+
+Congrats you have setup the Virtual Environment \!\!
+
+---
+
+## 2.  Installing Dependencies and Setting Up env files
+
+```bash
+pip install Flask Flask-SQLAlchemy Flask-Migrate python-dotenv
+```
+
+Now setup the `.env` file
+
+```ini
+# Flask App Configuration
+FLASK_APP=run.py
+FLASK_ENV=development
+FLASK_DEBUG=1
+
+# Secret keys and DB config 
+SECRET_KEY="my_secret_key"
+DEV_DATABASE_URL="sqlite:///dev.db"
+
+# Admin Credentials
+ADMIN_USERNAME="superadmin"
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="admin@123"
+```
+
+and the `.gitignore` file
+
+```ini
+# Virtual environment
+venv/
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*.so
+
+# Migrations (optional if you regenerate them)
+migrations/__pycache__/
+migrations/*.pyc
+
+# SQLite database
+*.db
+*.sqlite3
+
+# VSCode settings
+.vscode/
+
+# MacOS and Linux system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Coverage, test outputs
+htmlcov/
+.coverage
+.tox/
+.noseids
+.cache/
+pytest_cache/
+
+# Compiled files
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Flask session files (if any)
+instance/
+
+# PyInstaller
+*.spec
+```
+
+---
+
+## 3. Now Setup All Left out files
+
+Required Project Structure
+
+```markdown
+Backend/
+├── .venv/
+├── app/
+│   ├── models/
+│   │   └── __init__.py
+│   │   └── user.py
+│   │   └── admin.py
+│   ├── routes/
+│   │   └── auth.py
+│   │   └── admin.py
+│   │   └── user.py
+│   ├── utils/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── extensions.py
+├── .env
+├── .gitignore
+├── initial_data.py
+└── run.py
+```
+
+The `config.py` file as
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+    SQLALCHEMY_DATABASE_URI = os.getenv('DEV_DATABASE_URL', 'sqlite:///dev.db')
+
+class ProductionConfig(Config):
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+
+def get_config(env):
+    return {
+        'dev': DevelopmentConfig,
+        'prod': ProductionConfig
+    }.get(env, DevelopmentConfig)
+```
+
+The `extensions.py` file as
+
+```python
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+
+db = SQLAlchemy()
+migrate = Migrate()
+```
+
+The `routes/auth.py` as
+
+```python
+from flask import Blueprint, jsonify
+
+auth_bp = Blueprint('auth', __name__)
+
+@auth_bp.route('/', methods=['GET'])
+def root():
+    return jsonify({'message': 'Welcome to the Auth Endpoint'})
+```
+
+The `routes/admin.py` as
+
+```python
+from flask import Blueprint, jsonify
+
+admin_bp = Blueprint('admin-routes', __name__)
+
+@admin_bp.route('/', methods=['GET'])
+def root():
+    return jsonify({'message': 'Welcome to the Admin Endpoint'})
+```
+
+The `routes/user.py` as
+
+```python
+from flask import Blueprint, jsonify
+
+user_bp = Blueprint('user-routes', __name__)
+
+@user_bp.route('/', methods=['GET'])
+def root():
+    return jsonify({'message': 'Welcome to the User Endpoint'})
+```
+
+The `models/user.py` as
+
+```python
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from app.extensions import db
+
+class User(db.Model):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+```
+
+The `models/admin.py` as
+
+```python
+from sqlalchemy import Column, Integer, String
+from app.extensions import db
+
+class Admin(db.Model):
+    __tablename__ = 'admin'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+```
+
+The `models/__init__.py` as
+
+```python
+# Import all your model classes here
+from .admin import Admin
+from .user import User 
+
+# You can optionally define __all__ if you want to control what's exposed
+# when someone does `from app.models import *`
+__all__ = ['Admin', 'User']
+```
+
+The `app/__init__.py` file as
+
+```python
+from flask import Flask, jsonify
+from .config import get_config
+from .extensions import db, migrate
+from .routes.auth import auth_bp
+from .routes.userRoutes import user_bp
+from .routes.adminRoutes import admin_bp
+
+import app.models
+
+def create_app(config_name='dev'):
+    app = Flask(__name__, template_folder='./templates')
+    app.config.from_object(get_config(config_name))
+
+    # Initialize extensions
+    db.init_app(app)
+    migrate.init_app(app, db)
+
+    # Register blueprints
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(user_bp, url_prefix='/api/user')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
+
+    @app.route('/api', methods=["GET"])
+    def root():
+        return jsonify({'message': 'Welcome to the Parking App API!'})
+    
+    return app
+```
+
+The `initial_data.py` file as
+
+```python
+import os
+from dotenv import load_dotenv
+from app import create_app
+from app.extensions import db
+from app.models import Admin, User
+from werkzeug.security import generate_password_hash # For hashing passwords
+
+load_dotenv()
+
+def add_initial_data():
+    app = create_app('dev') # Use 'dev' config for initial data loading
+    with app.app_context():
+        print("Checking for existing initial data...")
+        
+        # Example: Add an admin user if they don't exist
+        admin_username = os.environ.get('ADMIN_USERNAME')
+        admin_email = os.environ.get('ADMIN_EMAIL')
+        admin_password = os.environ.get('ADMIN_PASSWORD')
+
+        if not Admin.query.filter_by(username=admin_username).first():
+            print(f"Adding initial admin user: {admin_username}")
+            hashed_admin_password = generate_password_hash(admin_password)
+            admin_user = Admin(
+                username=admin_username,
+                email=admin_email,
+                hashed_password=hashed_admin_password
+            )
+
+            db.session.add(admin_user)
+            db.session.commit()
+
+            print(f"Admin user '{admin_username}' added.")
+        else:
+            print(f"Admin user '{admin_username}' already exists. Skipping.")
+
+        # Example: Add a regular user
+        test_username = 'testuser'
+        test_email = 'testuser@example.com'
+        test_password = 'test@123'
+
+        if not User.query.filter_by(username=test_username).first():
+            print(f"Adding initial regular user: {test_username}")
+            test_password_hashed = generate_password_hash(test_password)
+            test_user = User(
+                username=test_username,
+                email=test_email,
+                hashed_password=test_password_hashed
+            )
+
+            db.session.add(test_user)
+            db.session.commit()
+
+            print(f"Regular user '{test_username}' added.")
+        else:
+            print(f"Regular user '{test_username}' already exists. Skipping.")
+
+        print("Initial data loading complete.")
+
+if __name__ == '__main__':
+    add_initial_data()
+```
+
+and the `run.py` as
+
+```python
+from dotenv import load_dotenv
+import os  # <- needed to access env vars
+
+load_dotenv()  # Automatically reads from .env
+
+from app import create_app
+
+app = create_app()
+
+if __name__ == '__main__':
+    app.run()
+```
+
+To initialize the database and properly change and update it, use
+
+```bash
+flask db init            # creates migrations folder
+flask db migrate -m "Initial migration"
+flask db upgrade         # creates dev.db
+```
+
+And the Final Folder Structure would look like:
+
+```
+Backend/
+├── .venv/
+├── app/
+│   ├── models/
+│   │   └── __init__.py
+│   │   └── user.py
+│   │   └── admin.py
+│   ├── routes/
+│   │   └── auth.py
+│   │   └── admin.py
+│   │   └── user.py
+│   ├── utils/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── extensions.py
+├── instance/
+├── migrations/
+├── .env
+├── .gitignore
+├── initial_data.py
+└── run.py
+```
+
+Now you can run the app using
+
+```bash
+flask run
+```
+
+---
+
+## 4. Version Control
+
+- Add a `README.md` file
+- Freeze the dependencies into `requirements.txt` file:
+
+```bash
+pip freeze > requirements.txt
+```
+
+> Before every commit u make, update the requirements.txt file, using the above command, as it re-writes it every time it runs.
+
+- Now initialize Git and do the version control using the steps in [[My Basic Git Workflow]]
+
+---
