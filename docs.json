@@ -34,16 +34,7 @@
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Introduction",
-          "icon": "book-open-cover",
-          "pages": ["introduction"]
-        }
-      ]
-    }
+    ]
   },
   "logo": {
     "light": "/logo/light.svg",
